@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   if (req.method === "OPTIONS") { res.status(204).end(); return; }
 
-  const upstream = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+    const upstream = "https://api.z.ai/api/paas/v4/chat/completions";
   try {
     const r = await fetch(upstream, {
       method: "POST",
