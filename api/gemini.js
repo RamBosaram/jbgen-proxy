@@ -5,12 +5,15 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") { res.status(204).end(); return; }
 
   const upstream = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+  const auth = String(req.headers.authorization || "");
+  const key = auth.replace(/^Bearer\s+/i, "").trim();
   try {
     const r = await fetch(upstream, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": req.headers.authorization || ""
+        "Authorization": "Bearer " + key,
+        "x-goog-api-key": key
       },
       body: JSON.stringify(req.body)
     });
