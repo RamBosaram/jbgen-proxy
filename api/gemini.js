@@ -1,12 +1,32 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-goog-api-key");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   if (req.method === "OPTIONS") { res.status(204).end(); return; }
 
+  // тело добываем всеми способами: req.body, буфер вручную
+  let body = req.body;
+  if (!body || typeof body !== "object" || !body.model) {
+    try {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const raw = Buffer.concat(chunks).toString("utf8");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.model) body = parsed;
+      }
+    } catch (e) { /* тело не читается — пойдём с тем что есть */ }
+  }
+
+  // если модели всё ещё нет — честная ошибка вместо пустого запроса к google
+  if (!body || !body.model) {
+    res.status(400).json({ error: { message: "proxy: model missing in request body (body received: " + JSON.stringify(body || null).slice(0, 200) + ")" } });
+    return;
+  }
+
+  const key = String(req.headers["x-goog-api-key"] || (req.headers.authorization || "").replace(/^Bearer\s+/i, "")).trim();
+
   const upstream = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-  const auth = String(req.headers.authorization || "");
-  const key = auth.replace(/^Bearer\s+/i, "").trim();
   try {
     const r = await fetch(upstream, {
       method: "POST",
@@ -15,7 +35,7 @@ export default async function handler(req, res) {
         "Authorization": "Bearer " + key,
         "x-goog-api-key": key
       },
-      body: JSON.stringify(req.body)
+      body: JSON.stringify(body)
     });
     const text = await r.text();
     res.setHeader("Content-Type", "application/json");
