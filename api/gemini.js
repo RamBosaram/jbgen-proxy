@@ -1,26 +1,27 @@
+export const config = {
+  api: {
+    bodyParser: false
+  }
+};
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-goog-api-key");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   if (req.method === "OPTIONS") { res.status(204).end(); return; }
 
-  // тело добываем всеми способами: req.body, буфер вручную
-  let body = req.body;
-  if (!body || typeof body !== "object" || !body.model) {
-    try {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(chunk);
-      const raw = Buffer.concat(chunks).toString("utf8");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.model) body = parsed;
-      }
-    } catch (e) { /* тело не читается — пойдём с тем что есть */ }
-  }
+  let body = null;
+  let rawLen = -1;
+  try {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const raw = Buffer.concat(chunks).toString("utf8");
+    rawLen = raw.length;
+    if (raw) body = JSON.parse(raw);
+  } catch (e) {}
 
-  // если модели всё ещё нет — честная ошибка вместо пустого запроса к google
   if (!body || !body.model) {
-    res.status(400).json({ error: { message: "proxy: model missing in request body (body received: " + JSON.stringify(body || null).slice(0, 200) + ")" } });
+    res.status(400).json({ error: { message: "proxy: model missing (rawLen: " + rawLen + ", body: " + JSON.stringify(body).slice(0, 200) + ")" } });
     return;
   }
 
